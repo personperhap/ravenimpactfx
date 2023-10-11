@@ -8,7 +8,7 @@ a test "realism" mod that adds impact fx and smoother and modifies the fps contr
 ![](https://github.com/personperhap/ravenimpactfx/blob/master/lessabrupt.gif)
 ![](https://github.com/personperhap/ravenimpactfx/blob/master/airinertia.gif)
 ![](https://github.com/personperhap/ravenimpactfx/blob/master/customizableair.gif)
-### even options for when in air and prone for sick looking dives :)
+  even options for when in air and prone for sick looking dives :)
 
 ## Smooth Stance Changing, Leaning and Zoom
 ![](https://github.com/personperhap/ravenimpactfx/blob/master/smootherlean.gif)
