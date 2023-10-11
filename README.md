@@ -1,6 +1,7 @@
 # ravenimpactfx
 a test "realism" mod that adds impact fx and smoother and modifies the fps controller to be smoother and more "realistic"
 
+
 ## Impact FX (with SFX)
 ![](https://github.com/personperhap/ravenimpactfx/blob/master/impactfx.gif)
 
@@ -16,3 +17,4 @@ a test "realism" mod that adds impact fx and smoother and modifies the fps contr
 ![](https://github.com/personperhap/ravenimpactfx/blob/master/stancechanging.gif)
 
 this was for the most part a personal endeavor, but feel free to suggestion additions
+check the bepinex config for more neat options, like extra randomly filled weapon slots, arcade style features like kicking during actions and running while shooting, and more control over certain values
