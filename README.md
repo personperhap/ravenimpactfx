@@ -18,3 +18,5 @@ a test "realism" mod that adds impact fx and smoother and modifies the fps contr
 
 this was for the most part a personal endeavor, but feel free to suggestion additions
 check the bepinex config for more neat options, like extra randomly filled weapon slots, arcade style features like kicking during actions and running while shooting, and more control over certain values
+
+Once you install [BepInEx](https://github.com/BepInEx/BepInEx), simply extract the contents of the zip into a randomly named folder in Ravenfield/BepInEx/Plugins
