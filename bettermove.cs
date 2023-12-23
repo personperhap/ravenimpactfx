@@ -85,6 +85,12 @@ namespace personplus
                                                "Impact FX",
                                                true,
                                                "Toggles custom impact VFX");
+            impactSFXEnabled = Config.Bind("General.Toggles",
+                                               "Impact SFX",
+                                               true,
+                                               "Toggles custom impact SFX");
+
+
             configImpactFXCooldown = Config.Bind("General.Toggles",
                                                 "ImpactFX Cooldown",
                                                 0.005f,
@@ -141,7 +147,62 @@ namespace personplus
                                                 false,
                                                 "NonFixedTime");
 
+            cameraSpring = Config.Bind("Camera.Recoil",
+                                                "Camera Spring",
+                                                70f,
+                                                "how bouncy the camera spring is");
+            cameraDrag = Config.Bind("Camera.Recoil",
+                                                "Camera Drag",
+                                                7f,
+                                                "camera spring drag");
+            cameraRecoveryCoefficient = Config.Bind("Camera.Recoil",
+                                                "Camera Recovery",
+                                                1f,
+                                                "how great the character is at controlling recoil");
+
+            cameraSimSpeed = Config.Bind("Camera.Recoil",
+                                                "Camera Spring Simulation Speed",
+                                                1f,
+                                                "simulation speed the spring updates at");
+            cameraSnap = Config.Bind("Camera.Recoil",
+                                                "Camera Snap",
+                                                4f,
+                                                "camera general snap multiplier");
+            cameraParkinsons = Config.Bind("Camera.Parkinsons",
+                                                "Camera Parkinsons Multiplier",
+                                                1f,
+                                                "how shakey your camera gets");
+            cameraParkinsonsAdditiveAmount = Config.Bind("Camera.Parkinsons",
+                                                "Camera Parkinsons Additive",
+                                                1f,
+                                                "multiplier for how much each transform delta in an animation adds onto the total.");
+
+            cameraSwing = Config.Bind("Camera.Recoil",
+                                                "Camera Swing",
+                                                4f,
+                                                "funky springs that make the camera bounce (might be annoying)");
+
+            slide = Config.Bind("Tactical.AndBeyond",
+                                                "slide",
+                                                true,
+                                                "slideeeeee");
+
+            vaulting = Config.Bind("Tactical.AndBeyond",
+                                                "vaulting",
+                                                true,
+                                                "get to places you aren't supposed to be");
+
+            vaulting = Config.Bind("Tactical.AndBeyond",
+                                                "wall running",
+                                                false,
+                                                "huh");
         }
+
+        public ConfigEntry<bool> slide;
+
+        public ConfigEntry<bool> vaulting;
+
+        public ConfigEntry<bool> wallRunning;
 
         public ConfigEntry<float> weaponSnapDurationMultiplier;
         public ConfigEntry<float> weaponSnapMagnitudeMultiplier;
@@ -150,8 +211,21 @@ namespace personplus
         public ConfigEntry<float> weaponPositionSpring;
         public ConfigEntry<float> weaponPositionDrag;
 
+
+        public ConfigEntry<float> cameraRecoveryCoefficient;
+
         public ConfigEntry<float> weaponRotationSpring;
         public ConfigEntry<float> weaponRotationDrag;
+
+        public ConfigEntry<float> cameraSpring;
+        public ConfigEntry<float> cameraDrag;
+        public ConfigEntry<float> cameraSnap;
+
+        public ConfigEntry<float> cameraSimSpeed;
+        public ConfigEntry<float> cameraParkinsons;
+        public ConfigEntry<float> cameraParkinsonsAdditiveAmount;
+
+        public ConfigEntry<float> cameraSwing;
 
         public ConfigEntry<bool> NonFixedTime;
 
@@ -190,6 +264,8 @@ namespace personplus
         public ConfigEntry<bool> extraWeapons;
 
         public ConfigEntry<bool> impactFXEnabled;
+
+        public ConfigEntry<bool> impactSFXEnabled;
 
         public ConfigEntry<bool> smoothEverything;
 
@@ -333,6 +409,17 @@ namespace personplus
                 }
             }
         }
+        [HarmonyPatch(typeof(FpsActorController), "DeployParachute")]
+        public class AutoJumpPatch2
+        {
+            public static void Postfix(FpsActorController __instance, bool __result)
+            {
+                if (instance.autoJump.Value && !SmoothMovementPatch2.wallRunning && SmoothMovementPatch2.wallJumpCooldown.Done() && SmoothMovementPatch2.leaveGroundCooldown.Done())
+                {
+                    __result = SteelInput.GetButtonDown(SteelInput.KeyBinds.Jump) && SteelInput.GetButton(SteelInput.KeyBinds.Use);
+                }
+            }
+        }
 
         public static float RealDelta()
         {
@@ -406,6 +493,8 @@ namespace personplus
                 }
             }
         }
+
+
         [HarmonyPatch(typeof(FpsActorController), nameof(FpsActorController.Reload))]
         public class ReloadPatch
         {
@@ -532,10 +621,10 @@ namespace personplus
                         float zoomFov = (float)typeof(PlayerFpParent).GetField("zoomFov", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
                         float normalFov = (float)typeof(PlayerFpParent).GetField("normalFov", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
 
-                        cameraRoot.fieldOfView = EasingFunction.EaseInOutQuint(normalFov, zoomFov, lerpHeight) + __instance.GetKickLocalEuler().magnitude * 5 + GetSnap(__instance) * 20;
+                        cameraRoot.fieldOfView = EasingFunction.EaseInOutQuint(normalFov, zoomFov, lerpHeight) + __instance.GetKickLocalEuler().magnitude * 20 + GetSnap(__instance) * 20;
                     }
                 }
-
+                __instance.shoulderParent.localEulerAngles += Vector3.back * CoolTiltingPatch.slideTilt * -20f;
             }
         }
         public static float GetSnap(PlayerFpParent __instance)
@@ -561,50 +650,78 @@ namespace personplus
         {
             static public float swayAmount = 0;
 
-            static public SpringPlus ravenCoil = new SpringPlus(70, 7, -Vector3.one * 20f, Vector3.one * 20f, 16, 1f, 0.5f);
+            static public SpringPlus ravenCoil = new SpringPlus(instance.cameraSpring.Value, instance.cameraDrag.Value, -Vector3.one * 20f, Vector3.one * 20f, 16, instance.cameraSimSpeed.Value, 0.5f);
 
-            static public Spring shakeCoil = new Spring(10, 5, -Vector3.one * 7f, Vector3.one * 7f, 8);
+            static public SpringPlus shakeCoil = new SpringPlus(70, 7, -Vector3.one * 20f, Vector3.one * 20f, 16, 1f, 0.5f);
 
             static public Vector3 averageDelta = Vector3.zero;
 
             static public Dictionary<Transform, Tuple<Vector3, Vector3>> bones = new Dictionary<Transform, Tuple<Vector3, Vector3>>();
 
             static public float lastSnap = 0;
+
+            static public Vector3 slideNoise;
+
+            static public Vector3 lerpNoise;
+
+            static public float slideTilt = 0;
+
+            public static float max = 50;
+
+            static public float wallTilt = 0;
+
+            static public Vector3 offsetPos = Vector3.zero;
+
             public static void Postfix(PlayerFpParent __instance)
             {
                 Vector3 targetAverage = Vector3.zero;
-                Dictionary<Transform, Tuple<Vector3, Vector3>> replaceBones = new Dictionary<Transform, Tuple<Vector3, Vector3>>();
-                foreach (Transform transform in bones.Keys)
-                {
-                    if(transform.localPosition == null)
-                    {
-                        break;
-                    }
-                    Vector3 inversePoint = transform.localPosition;
-                    replaceBones.Add(transform, new Tuple<Vector3, Vector3>(bones[transform].Item1, bones[transform].Item2));
-                    targetAverage += (bones[transform].Item1-  transform.localRotation.eulerAngles) / 5;
-                    targetAverage += (transform.localPosition - bones[transform].Item2) * 1000;
-                }
-                if(FpsActorController.instance.actor != null)
+                if (FpsActorController.instance.actor != null)
                 {
                     if (FpsActorController.instance.actor.activeWeapon != null)
                     {
                         if (FpsActorController.instance.actor.activeWeapon.arms != null)
                         {
-                            Dictionary < Transform, Tuple < Vector3, Vector3 >> dict = FpsActorController.instance.actor.activeWeapon.arms.bones.ToDictionary(x => x, x => new Tuple<Vector3, Vector3>(x.localRotation.eulerAngles, x.localPosition));
+                            Dictionary<Transform, Tuple<Vector3, Vector3>> replaceBones = new Dictionary<Transform, Tuple<Vector3, Vector3>>();
+                            foreach (Transform transform in bones.Keys)
+                            {
+                                if (transform.localPosition == null)
+                                {
+                                    break;
+                                }
+                                Vector3 inversePoint = transform.localPosition;
+                                replaceBones.Add(transform, new Tuple<Vector3, Vector3>(bones[transform].Item1, bones[transform].Item2));
+                                targetAverage += Vector3.ClampMagnitude((bones[transform].Item1 - transform.localRotation.eulerAngles) / 5, max) * instance.cameraParkinsonsAdditiveAmount.Value;
+                                targetAverage += Vector3.ClampMagnitude((transform.localPosition - bones[transform].Item2), max) * instance.cameraParkinsonsAdditiveAmount.Value;
+                            }
+
+                            Dictionary<Transform, Tuple<Vector3, Vector3>> dict = FpsActorController.instance.actor.activeWeapon.arms.bones.ToDictionary(x => x, x => new Tuple<Vector3, Vector3>(x.localRotation.eulerAngles, x.localPosition));
+
+                            foreach (Transform child in FpsActorController.instance.actor.activeWeapon.transform.GetComponentInChildren<Transform>())
+                            {
+                                if (!dict.ContainsKey(child))
+                                {
+                                    dict.Add(child, new Tuple<Vector3, Vector3>(child.localRotation.eulerAngles, child.localPosition));
+                                }
+                            }
                             CoolTiltingPatch.bones = dict;
                         }
                     }
                 }
 
-                
+
 
                 if (averageDelta.sqrMagnitude > 0.1f)
                 {
-                    shakeCoil.velocity = averageDelta;
+                    shakeCoil.AddVelocity(averageDelta);
                 }
-                averageDelta = Vector3.Lerp(averageDelta, targetAverage, Time.deltaTime * (Mathf.Log10(Mathf.Abs((averageDelta - targetAverage).magnitude + 0.05f)) + 2.3f) * 2);
-                Debug.Log(averageDelta);
+                else
+                {
+                    averageDelta = Vector3.zero;
+                }
+                float scaleOnDistanceToZero = targetAverage.magnitude < averageDelta.magnitude ? (Mathf.Pow(2, (Vector3.Distance(averageDelta, Vector3.zero) * -0.4f) - 6f) * 400 + 1) : 1;
+                float scaleOnTargetDifference = targetAverage.magnitude > 0.2 ? (Mathf.Log10(Mathf.Abs((averageDelta - targetAverage).magnitude + 1f)) + 2.3f) : 1;
+                float returnSpeed = RealDelta() * scaleOnTargetDifference * scaleOnDistanceToZero / 4;
+                averageDelta = Vector3.Lerp(averageDelta, targetAverage, returnSpeed);
 
                 //averageDelta = new Vector3(averageDelta.x, averageDelta.y, 0);
                 ravenCoil.Update();
@@ -613,7 +730,47 @@ namespace personplus
                 swayAmount = Mathf.Lerp(swayAmount, SteelInput.GetAxis(SteelInput.KeyBinds.Horizontal), RealDelta() * 2);
                 __instance.weaponParent.transform.localEulerAngles = __instance.weaponParent.transform.localEulerAngles + Vector3.back * -swayAmount * 6;
                 lastSnap = Mathf.Lerp(lastSnap, GetSnap(__instance), RealDelta() * 10);
-                __instance.fpCameraParent.localEulerAngles = __instance.fpCameraParent.localEulerAngles + Vector3.back * -swayAmount * 2 + __instance.GetSpringLocalEuler(true) / 2 + new Vector3(lastSnap * -6f, 0f, 0f) + ravenCoil.position + shakeCoil.position * 2.4f;
+                slideTilt = Mathf.Lerp(slideTilt, SmoothMovementPatch2.slidingAction.Done() ? 0 : 1, RealDelta() * 3);
+
+
+                wallTilt = Mathf.Lerp(wallTilt, SmoothMovementPatch2.wallTilt, RealDelta() * 3);
+                __instance.fpCameraParent.localEulerAngles = __instance.fpCameraParent.localEulerAngles + Vector3.back * -swayAmount * 2 + __instance.GetSpringLocalEuler(true) / 2 * instance.cameraSwing.Value + new Vector3(lastSnap * -6f * instance.cameraSnap.Value, 0f, 0f) + ravenCoil.position + shakeCoil.position * 0.8f * instance.cameraParkinsons.Value + Vector3.back * slideTilt * -5f + wallTilt * Vector3.back * -20;
+                __instance.weaponParent.transform.localEulerAngles += Vector3.back * slideTilt * -20f;
+
+                if (offsetPos.magnitude <= 0.01f)
+                {
+                    offsetPos = Vector3.zero;
+                }
+                else
+                {
+                    offsetPos = Vector3.Lerp(offsetPos, Vector3.zero, Time.deltaTime * 3);
+                }
+                
+                print($"offset: {offsetPos}, magnitude: {offsetPos.magnitude}");
+                SmoothMovementPatch2.speedMultiplier = Mathf.Lerp(1f, 0.8f, Mathf.Clamp01(Vector3.Distance(offsetPos, Vector3.zero) / 2));
+
+                FirstPersonController fpc = FpsActorController.instance.GetComponent<FirstPersonController>();
+                CharacterController cc = FpsActorController.instance.GetComponent<CharacterController>();
+                if (instance.vaulting.Value)
+                {
+                    if (Physics.SphereCast(__instance.fpCameraParent.position, 0.1f, __instance.fpCameraParent.forward, out var firstHit, cc.bounds.size.magnitude / 3f, -12945153))
+                    {
+                        if (Physics.Raycast(firstHit.point + (__instance.fpCameraParent.forward * 0.1f) + (Vector3.up * 0.3f * cc.bounds.size.y / 2), Vector3.down, out var secondHit, cc.bounds.size.y * 3))
+                        {
+                            var offset = cc.height / 2 - cc.radius;
+                            var localPoint0 = cc.center - Vector3.up * offset;
+                            var localPoint1 = cc.center + Vector3.up * offset;
+                            if (Physics.OverlapCapsule(localPoint0 + secondHit.point, localPoint1 + secondHit.point, cc.radius, -12945153).Length == 0)
+                            {
+                                Vector3 storedPos = PlayerFpParent.instance.fpCameraParent.position;
+                                FpsActorController.instance.controller.transform.position = secondHit.point;
+                                FpsActorController.instance.actor.animator.transform.localPosition = Vector3.zero;
+                                offsetPos = PlayerFpParent.instance.fpCameraParent.InverseTransformPoint(storedPos) + Vector3.up * 0.05f;
+                            }
+                        }
+                    }
+                }
+                __instance.fpCameraParent.localPosition += offsetPos;
             }
             public static Dictionary<TKey, TValue> CloneDictionaryCloningValues<TKey, TValue>
    (Dictionary<TKey, TValue> original) where TValue : ICloneable
@@ -632,11 +789,11 @@ namespace personplus
         {
             public static void Postfix(Weapon __instance)
             {
-                if (__instance.UserIsPlayer() || !__instance.IsMountedWeapon())
+                if (__instance.UserIsPlayer() || !__instance.IsMountedWeapon() && !__instance.UserIsAI())
                 {
                     float t = __instance.configuration.auto ? 1.8f : 0.6f;
 
-                    Vector3 vector = __instance.configuration.kickback * Vector3.back + UnityEngine.Random.insideUnitSphere * __instance.configuration.randomKick * 1.2f * __instance.configuration.snapDuration * t;
+                    Vector3 vector = __instance.configuration.kickback * Vector3.back + UnityEngine.Random.insideUnitSphere * __instance.configuration.randomKick * 1.4f * __instance.configuration.snapDuration * t;
 
                     if (__instance.user.stance == Actor.Stance.Prone)
                     {
@@ -644,7 +801,8 @@ namespace personplus
                     }
                     vector = new Vector3(vector.z, vector.x, -vector.x);
                     CoolTiltingPatch.ravenCoil.AddVelocity(vector * 50);
-                    CoolTiltingPatch.ravenCoil.distanceCoefficient = __instance.configuration.cooldown / 3;
+                    CoolTiltingPatch.ravenCoil.distanceCoefficient = __instance.configuration.cooldown / 3 * instance.cameraRecoveryCoefficient.Value;
+
                 }
             }
         }
@@ -664,6 +822,7 @@ namespace personplus
                     vector -= Vector3.ClampMagnitude(vector2, 1f);
                 }
                 __instance.fpParent.ApplyRecoil(vector, true);
+                SmoothMovementPatch2.wallJumpCooldown.StartLifetime(0.4f);
                 return false;
             }
         }
@@ -741,12 +900,47 @@ namespace personplus
             static Vector3 beforeSpeed = Vector3.zero;
 
             static float playerSpeed = 0;
+
+            public static TimedActionPlus slidingAction = new TimedActionPlus(2, false);
+
+            public static TimedActionPlus wallrunningAction = new TimedActionPlus(5, false);
+
+            public static TimedActionPlus wallJumpCooldown = new TimedActionPlus(1f, false);
+
+            public static TimedActionPlus leaveGroundCooldown = new TimedActionPlus(1f, false);
+
+            static bool lastAction;
+
+            public static float wallTilt = 0;
+
+            public static Vector3 slidingVector;
+
+            public static bool wallRunning = false;
+
+            public static bool lastWallRunning = false;
+
+            static public Vector3 extraVelocity = Vector3.zero;
+
+
+
+            public static float origGravity = 1.2f;
+
+            public static bool beforeGrounded;
+
+            public static float speedMultiplier = 1;
             public static void Prefix(CharacterController __instance, ref Vector3 motion)
             {
                 if (instance.tacticalMovement.Value && __instance.gameObject.name == "Player Fps Actor(Clone)" && !ActorManager.instance.player.IsSeated() && MoveActorCalled <= 0)
                 {
+
+
+
                     if (!__instance.isGrounded)
                     {
+                        if (beforeGrounded == true)
+                        {
+                            leaveGroundCooldown.StartLifetime(0.4f);
+                        }
                         if (ActorManager.instance.player.controller.Prone())
                         {
                             float mx = Mathf.Lerp(beforeSpeed.x, motion.x, RealDelta() * instance.airDiveMovementSmoothing.Value * Mathf.Pow(3, Mathf.Abs(motion.x - beforeSpeed.x)));
@@ -782,9 +976,111 @@ namespace personplus
                             }
                         }
                     }
+                    bool action = ActorManager.instance.player.controller.IsSprinting();
+                    if (lastAction == true && ActorManager.instance.player.controller.Crouch() && slidingAction.Done() && __instance.isGrounded && ActorManager.instance.player.controller.Velocity().ToGround().magnitude > 0.2f && instance.slide.Value)
+                    {
+                        slidingAction.Start();
+                        slidingVector = new Vector3(__instance.velocity.x, 0, __instance.velocity.z) * ActorManager.instance.player.speedMultiplier / 40;
+                        PlayerFpParent.instance.KickCamera(new Vector3(UnityEngine.Random.Range(0, 1), UnityEngine.Random.Range(0, 1), UnityEngine.Random.Range(0, 1)) * 5);
+                    }
+                    lastAction = action;
+
+
+                    if (!slidingAction.Done())
+                    {
+                        if (FpsActorController.instance.actor.activeWeapon != null)
+                        {
+                            FpsActorController.instance.actor.activeWeapon.walkBobMultiplier = 0;
+                            FpsActorController.instance.actor.activeWeapon.sprintBobMultiplier = 0;
+                        }
+                        if (!ActorManager.instance.player.controller.OnGround())
+                        {
+                            slidingAction.end += Time.deltaTime;
+                        }
+                        motion = Vector3.Lerp(new Vector3(slidingVector.x, motion.y, slidingVector.z), motion / 2, Mathf.Lerp(0, 1, slidingAction.Ratio())) * Time.timeScale;
+                        if (!ActorManager.instance.player.controller.Crouch() || (ActorManager.instance.player.controller.Velocity().ToGround().magnitude < 0.2f && slidingAction.Ratio() > 0.5f))
+                        {
+                            slidingAction.Stop();
+                            slidingVector = Vector3.zero;
+                        }
+                    }
+                    else
+                    {
+                        if (FpsActorController.instance.actor.activeWeapon != null)
+                        {
+                            Weapon entryWeapon = FpsActorController.instance.actor.activeWeapon.weaponEntry.prefab.GetComponent<Weapon>();
+                            FpsActorController.instance.actor.activeWeapon.walkBobMultiplier = entryWeapon.walkBobMultiplier;
+                            FpsActorController.instance.actor.activeWeapon.sprintBobMultiplier = entryWeapon.sprintBobMultiplier;
+                        }
+                    }
+                    motion += extraVelocity;
+                    FirstPersonController fpc = FpsActorController.instance.GetComponent<FirstPersonController>();
+                    wallTilt = 0;
+                    wallRunning = false;
+                    if (!__instance.isGrounded && instance.wallRunning.Value && FpsActorController.instance.Prone())
+                    { 
+
+                        RaycastHit raycastHitLeft;
+                        RaycastHit raycastHitRight;
+
+                        Ray rayleft = new Ray(fpc.transform.position, -fpc.cameraParent.right);
+                        Ray rayright = new Ray(fpc.transform.position, fpc.cameraParent.right);
+
+                        bool hitleft = Physics.Raycast(rayleft, out raycastHitLeft, __instance.bounds.size.magnitude / 2 + 0.01f, -12945153);
+
+                        bool hitright = Physics.Raycast(rayright, out raycastHitRight, __instance.bounds.size.magnitude / 2 + 0.01f, -12945153);
+
+                        if (hitleft || hitright)
+                        {
+                            RaycastHit raycastHit;
+                            if (hitleft && hitright)
+                            {
+                                raycastHit = raycastHitLeft.distance < raycastHitRight.distance ? raycastHitLeft : raycastHitRight;
+                                wallTilt = raycastHitLeft.distance < raycastHitRight.distance ? -1 : 1;
+                            }
+                            else
+                            {
+                                raycastHit = hitleft ? raycastHitLeft : raycastHitRight;
+                                wallTilt = hitleft ? -1 : 1;
+                            }
+
+                            if (Mathf.Abs(Vector3.Dot(raycastHit.normal, Vector3.up)) < 0.1f)
+                            {
+                                Vector3 vector = Vector3.Cross(raycastHit.normal, Vector3.up);
+                                if ((FpsActorController.instance.FacingDirection() - vector).magnitude > (FpsActorController.instance.FacingDirection() - -vector).magnitude)
+                                    vector = -vector;
+                                motion = new Vector3(motion.x, motion.y, motion.z) + vector * ActorManager.instance.player.speedMultiplier / 150;
+                                Debug.Log($"{hitleft}, {motion}");
+                                wallRunning = true;
+
+                                FpsActorController.instance.actor.balance = FpsActorController.instance.actor.maxBalance;
+
+                                if (SteelInput.GetButton(SteelInput.KeyBinds.Jump) && wallJumpCooldown.Done() && Time.time - (float)typeof(FirstPersonController).GetField("jumpTimestamp", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(fpc) < Mathf.Max(Time.deltaTime, 0.15f) && leaveGroundCooldown.Done())
+                                {
+                                    wallJumpCooldown.StartLifetime(1f);
+                                    fpc.ResetVelocity();
+                                    typeof(FirstPersonController).GetField("m_MoveVelocity", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(fpc, new Vector3(0, 6, 0) + raycastHit.normal);
+                                    extraVelocity += raycastHit.normal * 0.12f;
+                                    motion = Vector3.zero;
+                                }
+                            }
+
+                        }
+                    }
+
+                    extraVelocity = Vector3.MoveTowards(extraVelocity, Vector3.zero, Time.fixedDeltaTime * 2);
+                    if (wallRunning)
+                    {
+                        typeof(FirstPersonController).GetField("m_GravityMultiplier", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(fpc, origGravity / 4);
+                    }
+                    else
+                    {
+                        typeof(FirstPersonController).GetField("m_GravityMultiplier", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(fpc, origGravity);
+                    }
+                    beforeGrounded = __instance.isGrounded;
                 }
                 playerSpeed = ActorManager.instance.player.speedMultiplier;
-
+                motion *= speedMultiplier;
             }
             public static void Postfix(CharacterController __instance, Vector3 motion)
             {
@@ -814,21 +1110,24 @@ namespace personplus
                 emission2.burstCount *= Mathf.RoundToInt(Mathf.Clamp(Mathf.Pow(__instance.configuration.damage / 20, 1 / 2) * 1.5f, 1f, 4f));
             }
             p.Play();
-            if (impactFXSource == null)
+            if (instance.impactSFXEnabled.Value)
             {
-                impactFXSource = new GameObject().AddComponent<AudioSource>();
-                impactFXSource.priority = 127;
-                impactFXSource.pitch = UnityEngine.Random.Range(0.9f, 1.1f);
-                impactFXSource.spatialBlend = 1f;
-                impactFXSource.volume = 3f;
-                impactFXSource.dopplerLevel = 1;
-                impactFXSource.rolloffMode = AudioRolloffMode.Logarithmic;
-                impactFXSource.minDistance = 2;
-                impactFXSource.maxDistance = 7;
+                if (impactFXSource == null)
+                {
+                    impactFXSource = new GameObject().AddComponent<AudioSource>();
+                    impactFXSource.priority = 127;
+                    impactFXSource.pitch = UnityEngine.Random.Range(0.9f, 1.1f);
+                    impactFXSource.spatialBlend = 1f;
+                    impactFXSource.volume = 3f;
+                    impactFXSource.dopplerLevel = 1;
+                    impactFXSource.rolloffMode = AudioRolloffMode.Logarithmic;
+                    impactFXSource.minDistance = 2;
+                    impactFXSource.maxDistance = 7;
+                }
+                impactFXSource.transform.position = hitInfo.point;
+                AudioClip clip = impactSounds[UnityEngine.Random.Range(0, impactSounds.Count)];
+                impactFXSource.PlayOneShot(clip, 1f);
             }
-            impactFXSource.transform.position = hitInfo.point;
-            AudioClip clip = impactSounds[UnityEngine.Random.Range(0, impactSounds.Count)];
-            impactFXSource.PlayOneShot(clip, 1f);
             yield break;
         }
         [HarmonyPatch(typeof(Projectile), "SpawnDecal")]

@@ -17,7 +17,6 @@ public class SpringPlus
 		this.simSpeed = simSpeed;
 		this.distanceCoefficient = distanceCoefficient;
 	}
-
 	// Token: 0x06001180 RID: 4480 RVA: 0x00060F1E File Offset: 0x0005F11E
 	public void AddVelocity(Vector3 delta)
 	{
